@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>IPSI Digital Scoring (Firebase) - All-in-One</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Library untuk Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+
+    <style>
+        * {
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+        body {
+            background-color: #f8fafc;
+            color: #1e293b;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: row; 
+        }
+        .active-press:active {
+            transform: scale(0.95);
+            filter: brightness(0.9);
+        }
+        input[type="checkbox"] {
+            width: 22px;
+            height: 22px;
+            accent-color: #eab308;
+        }
+        .grid-juri {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 6px;
+        }
+        .rotate-180 {
+            transform: rotate(180deg);
+        }
+        .hidden {
+            display: none !important;
+        }
+
+        /* LOGIN SCREEN STYLES */
+        #login-screen {
+            position: fixed;
+            inset: 0;
+            z-index: 2000;
+            background-color: #0f172a;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            text-align: center;
+        }
+        #login-video {
+            width: 180px;
+            height: 180px;
+            object-fit: cover;
+            border-radius: 50%;
+            border: 4px solid #3b82f6;
+            box-shadow: 0 0 40px rgba(59, 130, 246, 0.5);
+            margin-bottom: 20px;
+        }
+
+        /* SIDEBAR STYLES */
+        #sidebar {
+            width: 180px;
+            background: white;
+            border-right: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            flex-shrink: 0;
+        }
+        #sidebar.closed {
+            margin-left: -180px;
+        }
+        #main-wrapper {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        /* Style Menu Sidebar */
+        .menu-box {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 15px;
+            background: transparent;
+            transition: all 0.2s;
+            color: #64748b;
+            cursor: pointer;
+            border-left: 4px solid transparent;
+            flex-shrink: 0; 
+            min-height: 48px;
+        }
+        .menu-box i {
+            font-size: 18px;
+            width: 20px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+        .menu-box img {
+            width: 20px;
+            height: 20px;
+            object-fit: contain;
+            flex-shrink: 0;
+        }
+        .menu-box span {
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+            white-space: nowrap; 
+        }
+        .menu-box.active {
+            background: #eff6ff;
+            border-left-color: #3b82f6;
+            color: #1d4ed8;
+        }
+        .menu-box:hover:not(.active) {
+            background: #f1f5f9;
+        }
+
+        /* Floating Toggle Button */
+        #toggle-menu-btn {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background: #1e293b;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            z-index: 110;
+            cursor: pointer;
+            border: 2px solid #334155;
+        }
+
+        /* Mode Juri Artistik (Ganda/Solo) */
+        .art-btn {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            color: #64748b;
+            transition: all 0.2s;
+            font-weight: 800;
+        }
+        
+        /* Tombol Item Grid Artistik */
+        .art-btn-item {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            color: #475569;
+            font-size: 8px;
+            font-weight: 900;
+            padding: 8px 0;
+            border-radius: 6px;
+            transition: all 0.1s;
+        }
+        .art-btn-item.glow-active {
+            background: #3b82f6 !important;
+            color: #fff !important;
+            border-color: #2563eb !important;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.8);
+            transform: scale(0.9);
+        }
+
+        .art-btn-plus {
+            background: #10b981 !important;
+            color: white !important;
+            border-color: #059669 !important;
+            box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);
+        }
+
+        /* Indikator Juri */
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 3px;
+        }
+        .online { background-color: #22c55e; box-shadow: 0 0 4px #22c55e; }
+        .offline { background-color: #ef4444; }
+
+        /* Scoreboard Specific */
+        .sb-card {
+            background: linear-gradient(145deg, #1e293b, #0f172a);
+            border: 1px solid #334155;
+        }
+        .sb-glow {
+            text-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+        }
+
+        /* Stamina Indicator */
+        .stamina-btn {
+            background-color: #f1f5f9;
+            color: #94a3b8;
+            border: 1px solid #e2e8f0;
+            transition: all 0.2s ease;
+        }
+        .stamina-active {
+            background-color: #eab308 !important; 
+            color: #451a03 !important;
+            border-color: #b45309 !important;
+            box-shadow: 0 0 15px rgba(234, 179, 8, 0.6);
+            transform: scale(1.05);
+            font-weight: 900;
+        }
+
+        /* Gaya Tombol Operator Responsif */
+        .btn-op-persiapan.active { background-color: #eab308 !important; color: #000 !important; border-color: #ca8a04 !important; box-shadow: 0 0 10px rgba(234, 179, 8, 0.4); }
+        .btn-op-live.active { background-color: #22c55e !important; color: #fff !important; border-color: #16a34a !important; box-shadow: 0 0 10px rgba(34, 197, 94, 0.4); }
+        .btn-op-selesai.active { background-color: #ef4444 !important; color: #fff !important; border-color: #dc2626 !important; box-shadow: 0 0 10px rgba(239, 68, 68, 0.4); }
+
+        @keyframes flash-yellow {
+            0% { background-color: #eab308; transform: scale(1.1); color: #000; }
+            100% { transform: scale(1); }
+        }
+        .animate-flash {
+            animation: flash-yellow 0.8s ease-out;
+            border-color: #eab308 !important;
+            z-index: 10;
+        }
+
+        .sekretaris-tab {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            border-bottom: 2px solid transparent;
+            color: #94a3b8;
+        }
+        .sekretaris-tab.active {
+            border-bottom: 2px solid #3b82f6;
+            color: #3b82f6;
+            background: #eff6ff;
+        }
+
+        .table-group-header {
+            background-color: #1e293b;
+            color: white;
+            padding: 6px 12px;
+            font-weight: 900;
+            text-transform: uppercase;
+            font-size: 9px;
+            letter-spacing: 0.05em;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-sekretaris {
+            background-color: #16a34a !important; 
+            color: white !important;
+        }
+        .border-black-sep {
+            border: 1px solid #000000 !important;
+        }
+        
+        .flex-scroll {
+            flex: 1;
+            overflow-y: auto;
+            min-height: 0;
+        }
+
+        /* LAPTOP MODE STYLES */
+        body.laptop-mode {
+            font-size: 16px;
+        }
+        .laptop-mode .menu-box span { font-size: 11px; }
+        .laptop-mode .menu-box img { width: 24px; height: 24px; }
+        .laptop-mode .menu-box i { font-size: 20px; }
+        .laptop-mode main { padding: 24px !important; }
+        .laptop-mode .grid-juri { gap: 12px; }
+        .laptop-mode .sb-card { padding: 40px !important; }
+        .laptop-mode #sb-final-score { font-size: 200px !important; }
+        .laptop-mode .table-group-header { font-size: 14px; padding: 12px 20px; }
+        .laptop-mode th, .laptop-mode td { font-size: 13px !important; padding: 12px !important; }
+        .laptop-mode #identityBar h2 { font-size: 18px; }
+        .laptop-mode #identityBar span { font-size: 14px; }
+
+        /* Full Screen Bersih: Hide Header & Identity Bar */
+        body.clean-view #topHeader, 
+        body.clean-view #identityBar {
+            display: none !important;
+        }
+    </style>
+</head>
+<body class="font-sans text-[13px]">
+
+    <!-- HALAMAN LOGIN -->
+    <div id="login-screen">
+        <video id="login-video" autoplay muted loop playsinline>
+            <source src="https://github.com/pencaksilatdigitalscoring/BRONZE-DIGITAL-SCORING-PENCAK-SILAT/raw/main/Dua_naga_terbang_menyatu_logo_202608012347.mp4" type="video/mp4">
+        </video>
+        <h1 class="text-2xl md:text-3xl font-black text-white uppercase italic tracking-tighter mb-1">2 Cahaya Digital Sport</h1>
+        <p class="text-blue-400 text-[10px] font-bold uppercase tracking-widest mb-8">Pencak Silat Digital Scoring System</p>
+        
+        <div class="w-full max-w-xs space-y-3">
+            <input type="password" id="login-password" placeholder="MASUKKAN PASSWORD" class="w-full bg-slate-900 border-2 border-slate-700 p-4 rounded-2xl text-white text-center font-black focus:border-blue-500 outline-none transition-all placeholder:text-slate-600">
+            <button onclick="checkLogin()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl uppercase tracking-widest active-press shadow-lg shadow-blue-900/50">Masuk Sistem</button>
+        </div>
+    </div>
+
+    <!-- TOMBOL TOGGLE SIDEBAR -->
+    <div id="toggle-menu-btn" onclick="toggleSidebar(event)" class="active-press">
+        <i class="fas fa-bars"></i>
+    </div>
+
+    <!-- SIDEBAR NAVIGATION -->
+    <aside id="sidebar" class="closed">
+        <div class="p-4 border-b border-slate-100 flex flex-col items-center justify-center bg-slate-50">
+            <img src="https://cdn-icons-png.flaticon.com/512/3406/3406828.png" class="w-10 mb-2">
+            <span class="font-black text-slate-800 text-[10px] tracking-tighter">IPSI DIGITAL</span>
+        </div>
+        
+        <div class="flex-grow py-2 flex flex-col overflow-y-auto">
+            <div onclick="switchView('dewan')" id="nav-dewan" class="menu-box active">
+                <img src="https://cdn-icons-png.flaticon.com/512/3406/3406828.png" alt="Dewan">
+                <span>Dewan</span>
+            </div>
+            <div onclick="switchView('sekretaris')" id="nav-sekretaris" class="menu-box">
+                <img src="https://cdn-icons-png.flaticon.com/512/3652/3652191.png" alt="Sekretaris">
+                <span>Sekretaris</span>
+            </div>
+            <div onclick="switchView('operator')" id="nav-operator" class="menu-box">
+                <img src="https://cdn-icons-png.flaticon.com/512/4434/4434344.png" alt="Operator">
+                <span>Operator</span>
+            </div>
+            <div onclick="switchView('juri')" id="nav-juri" class="menu-box">
+                <img src="https://cdn-icons-png.flaticon.com/512/3364/3364789.png" alt="Juri">
+                <span>Juri</span>
+            </div>
+            <div onclick="switchView('jadwal')" id="nav-jadwal" class="menu-box">
+                <img src="https://cdn-icons-png.flaticon.com/512/2693/2693507.png" alt="Jadwal">
+                <span>Jadwal</span>
+            </div>
+            <div onclick="switchView('rekap')" id="nav-rekap" class="menu-box">
+                <img src="https://cdn-icons-png.flaticon.com/512/3112/3112946.png" alt="Rekap">
+                <span>Rekap</span>
+            </div>
+            <div onclick="switchView('scoreboard')" id="nav-scoreboard" class="menu-box">
+                <img src="https://cdn-icons-png.flaticon.com/512/762/762036.png" alt="Scoreboard">
+                <span>Scoreboard</span>
+            </div>
+            
+            <div class="mt-auto border-t border-slate-100 p-2 space-y-1">
+                <div onclick="toggleLaptopMode()" id="nav-laptop" class="menu-box !p-2 !rounded-lg border-none">
+                    <i class="fas fa-laptop"></i>
+                    <span>Laptop Mode</span>
+                </div>
+                <div onclick="toggleCleanView()" id="nav-clean" class="menu-box !p-2 !rounded-lg border-none">
+                    <i class="fas fa-expand"></i>
+                    <span id="clean-text">Full Screen</span>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- WRAPPER UTAMA -->
+    <div id="main-wrapper" onclick="handleWrapperClick()">
+        <!-- HEADER STATUS -->
+        <header id="topHeader" class="bg-slate-800 border-b border-slate-700 p-2 flex justify-between items-center shrink-0">
+            <div class="flex items-center gap-2">
+                <div id="roleBadge" class="bg-yellow-500 text-black font-black px-2 py-0.5 rounded text-[10px]">DEWAN</div>
+                <span id="matchInfo" class="font-bold text-[10px] text-white uppercase">Partai --</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <div class="bg-black px-3 py-0.5 rounded border border-red-900 text-center">
+                    <span id="finalTimeDisplay" class="text-lg font-mono font-bold text-white">00:00.00</span>
+                </div>
+                <button onclick="logout()" class="bg-red-600 hover:bg-red-700 text-white p-2 rounded-lg active-press" title="Logout">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- IDENTITAS PESILAT (Global Bar) -->
+        <div id="identityBar" class="bg-blue-600 p-2 flex items-center justify-between shadow-md shrink-0">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 bg-white rounded-full flex items-center justify-center text-blue-600 font-black shadow text-xs">A</div>
+                <div>
+                    <h2 id="namaPesilat" class="font-bold uppercase text-[10px] text-white leading-tight">Belum Ada Pertandingan</h2>
+                    <span id="kategoriPesilat" class="text-[9px] text-blue-100 uppercase font-medium tracking-tighter">Pilih di Operator</span>
+                </div>
+            </div>
+            <div class="flex gap-3">
+                <div class="text-right border-l border-blue-400 pl-3">
+                    <span class="text-[8px] block text-blue-100 uppercase">Median</span>
+                    <span id="medianValue" class="font-black text-sm text-white">0.00</span>
+                </div>
+                <div class="text-right border-l border-blue-400 pl-3">
+                    <span class="text-[8px] block text-blue-100 uppercase">Std Dev</span>
+                    <span id="stdDevValue" class="font-black text-sm text-white">0.000</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW: DEWAN -->
+        <main id="view-dewan" class="view-content flex-grow p-2 flex flex-col gap-2 overflow-y-auto">
+            <section class="shrink-0 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
+                <div id="juriContainer" class="grid-juri"></div>
+            </section>
+
+            <section class="grid grid-cols-3 gap-2 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
+                <div class="text-center">
+                    <span class="text-[8px] font-bold text-slate-400 uppercase block mb-0.5">Pinalti Dewan</span>
+                    <div id="penaltyDewanDisplay" class="text-xs font-black text-red-600">0.00</div>
+                </div>
+                <div class="text-center border-l border-slate-100">
+                    <span class="text-[8px] font-bold text-slate-400 uppercase block mb-0.5">Pinalti Juri</span>
+                    <div id="penaltyJuriDisplay" class="text-xs font-black text-red-600">0.00</div>
+                </div>
+                <div class="text-center border-l border-slate-100 bg-red-50 rounded">
+                    <span class="text-[8px] font-bold text-red-400 uppercase block mb-0.5">Total Pinalti</span>
+                    <div id="totalPenaltyDisplay" class="text-xs font-black text-red-700">0.00</div>
+                </div>
+            </section>
+
+            <section class="grid grid-cols-5 gap-2 shrink-0">
+                <div id="scoreBox" class="col-span-2 bg-white p-2 rounded-xl border border-slate-300 flex flex-col items-center justify-center text-center shadow-sm">
+                    <label class="text-[9px] font-bold text-slate-500 uppercase block mb-1">Skor Akhir</label>
+                    <div id="finalScore" class="text-2xl font-black text-blue-700 leading-none tracking-tighter">0.000</div>
+                </div>
+                <div class="col-span-3 space-y-2">
+                    <div class="bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
+                        <label class="text-[8px] font-bold text-slate-400 uppercase block mb-1 text-center">Pinalti Manual & Koreksi</label>
+                        <div class="grid grid-cols-1">
+                            <button onclick="addManualPenalty(0.50)" class="bg-red-600 border border-red-700 text-white py-1.5 rounded text-[10px] font-bold active-press">-0.50</button>
+                        </div>
+                    </div>
+                    <div class="bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
+                        <label class="text-[8px] font-bold text-slate-400 uppercase block mb-1 text-center">Status Peserta</label>
+                        <div class="grid grid-cols-2 gap-1">
+                            <button onclick="addUDPenalty()" class="bg-orange-500 border-b-4 border-orange-700 text-white py-1.5 rounded text-[9px] font-black active-press uppercase">Undur Diri</button>
+                            <button onclick="toggleDQ()" class="bg-red-600 border-b-4 border-red-800 text-white py-1.5 rounded text-[9px] font-black uppercase active-press">Diskualifikasi</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="grid grid-cols-3 gap-2 shrink-0">
+                <button onclick="resetFullMatch()" class="bg-slate-700 border-b-4 border-slate-900 text-white py-3 rounded-lg font-black uppercase text-[11px] shadow-md active-press">Reset Sistem</button>
+                <button onclick="finishMatch()" class="bg-emerald-600 border-b-4 border-emerald-800 text-white py-3 rounded-lg font-black uppercase text-[11px] shadow-md active-press">Selesai / Kirim Skor</button>
+                <button id="btnPartaiSelanjutnya" onclick="autoNextMatch()" class="bg-blue-600 border-b-4 border-blue-800 text-white py-3 rounded-lg font-black uppercase text-[11px] shadow-md active-press">Selanjutnya</button>
+            </section>
+        </main>
+
+        <!-- VIEW: SEKRETARIS -->
+        <main id="view-sekretaris" class="view-content hidden flex-grow flex flex-col overflow-hidden">
+            <div class="bg-white border-b border-slate-200 flex shrink-0">
+                <div onclick="switchSekretarisSub('input')" id="sub-sek-input" class="sekretaris-tab active active-press">
+                    <i class="fas fa-edit mr-1"></i> Input Data
+                </div>
+                <div onclick="switchSekretarisSub('data')" id="sub-sek-data" class="sekretaris-tab active-press">
+                    <i class="fas fa-users mr-1"></i> Data Peserta
+                </div>
+            </div>
+
+            <div class="flex-scroll p-3">
+                <div id="sekretaris-input-page" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-4">
+                    <h3 id="formTitleSek" class="text-xs font-black uppercase text-blue-600 mb-3 border-b pb-1">Input Data Peserta Baru</h3>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-[9px] font-bold text-slate-400 uppercase">Kontingen</label>
+                            <input type="text" id="input_kontingen" class="w-full bg-slate-50 border border-slate-200 p-2 rounded font-bold text-[11px]">
+                        </div>
+                        <div>
+                            <label class="text-[9px] font-bold text-slate-400 uppercase">Kategori</label>
+                            <select id="input_kategori" onchange="updateNameInputs()" class="w-full bg-slate-50 border border-slate-200 p-2 rounded font-bold text-[11px]">
+                                <option>Tunggal</option>
+                                <option>Solo Kreatif</option>
+                                <option>Ganda</option>
+                                <option>Regu</option>
+                            </select>
+                        </div>
+                        
+                        <div id="nama_fields_container" class="col-span-2 grid grid-cols-1 gap-2">
+                            <div>
+                                <label class="text-[9px] font-bold text-slate-400 uppercase">Nama Pesilat</label>
+                                <input type="text" class="input-nama w-full bg-slate-50 border border-slate-200 p-2 rounded font-bold text-[11px]">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="text-[9px] font-bold text-slate-400 uppercase">Jenis Kelamin</label>
+                            <select id="input_jk" class="w-full bg-slate-50 border border-slate-200 p-2 rounded font-bold text-[11px]">
+                                <option>Putra</option>
+                                <option>Putri</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[9px] font-bold text-slate-400 uppercase">Kualifikasi Usia</label>
+                            <select id="input_usia" class="w-full bg-slate-50 border border-slate-200 p-2 rounded font-bold text-[11px]">
+                                <option>Usia Dini 1</option>
+                                <option>Usia Dini 2</option>
+                                <option>Pra Remaja</option>
+                                <option>Remaja</option>
+                                <option>Dewasa</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button id="btn_simpan_peserta" onclick="tambahPeserta()" class="flex-grow mt-4 bg-blue-600 text-white py-2 rounded-lg font-black text-[10px] uppercase active-press">Simpan Peserta</button>
+                        <button id="btn_cancel_edit" onclick="cancelEdit()" class="hidden mt-4 bg-slate-400 text-white px-4 py-2 rounded-lg font-black text-[10px] uppercase active-press">Batal</button>
+                    </div>
+                </div>
+
+                <div id="sekretaris-data-page" class="hidden flex flex-col gap-3">
+                    <div class="flex gap-1">
+                        <button onclick="exportToExcel()" class="flex-1 bg-emerald-600 text-white py-2 rounded text-[8px] font-black uppercase active-press"><i class="fas fa-file-excel mr-1"></i> Excel</button>
+                        <button onclick="exportToPDF()" class="flex-1 bg-red-600 text-white py-2 rounded text-[8px] font-black uppercase active-press"><i class="fas fa-file-pdf mr-1"></i> PDF</button>
+                        <button onclick="hapusSemuaPeserta()" class="flex-1 bg-slate-800 text-white py-2 rounded text-[8px] font-black uppercase active-press"><i class="fas fa-trash-alt mr-1"></i> Hapus Semua</button>
+                    </div>
+                    <div id="groupedTableSekretaris" class="space-y-4 pb-10"></div>
+                </div>
+            </div>
+        </main>
+
+        <!-- VIEW: OPERATOR -->
+        <main id="view-operator" class="view-content hidden flex-grow p-3 flex flex-col gap-4 overflow-y-auto">
+            <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm text-center">
+                <h3 class="text-[10px] font-black uppercase text-slate-400 mb-2 border-b pb-1">Kontrol Waktu</h3>
+                <div class="flex gap-2">
+                    <button onclick="startTimer()" class="flex-1 bg-emerald-600 text-white py-2 rounded-lg font-black text-[10px] uppercase active-press">Start</button>
+                    <button onclick="pauseTimer()" class="flex-1 bg-amber-500 text-white py-2 rounded-lg font-black text-[10px] uppercase active-press">Pause</button>
+                    <button onclick="resetTimer()" class="flex-1 bg-red-600 text-white py-2 rounded-lg font-black text-[10px] uppercase active-press">Reset</button>
+                </div>
+            </div>
+            <div class="shrink-0">
+                 <button onclick="hapusSemuaPeserta()" class="w-full bg-slate-800 text-white py-2 rounded-lg text-[10px] font-black uppercase active-press">
+                    <i class="fas fa-trash-alt mr-2"></i> Hapus Semua Peserta
+                 </button>
+            </div>
+            <div id="groupedTableOperator" class="space-y-4 flex-grow"></div>
+        </main>
+
+        <!-- VIEW: JURI -->
+        <main id="view-juri" class="view-content hidden flex-grow p-3 flex flex-col gap-3 overflow-y-auto">
+            <div id="juriSelectionScreen" class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+                <h3 class="text-center font-black text-slate-600 uppercase text-xs mb-4">Pilih Nomor Juri Anda</h3>
+                <div id="juriButtonsGrid" class="grid grid-cols-5 gap-2"></div>
+            </div>
+
+            <div id="juriScoringScreen" class="hidden flex flex-col gap-3">
+                <div class="flex justify-between items-center">
+                    <div class="bg-slate-800 text-white px-3 py-1 rounded-lg border border-slate-600 shadow-sm">
+                        <span id="juriMatchTimer" class="font-mono font-bold text-sm tracking-widest text-emerald-400">00:00.00</span>
+                    </div>
+                    <button onclick="backToJuriSelect()" class="bg-red-600 text-white px-4 py-1.5 rounded-lg font-black text-[10px] uppercase active-press shadow-sm">
+                        <i class="fas fa-sign-out-alt mr-1"></i> Exit
+                    </button>
+                </div>
+
+                <div class="bg-white p-3 rounded-2xl border border-slate-200 flex items-center gap-3 shadow-sm">
+                    <div class="w-12 h-12 rounded-full border-2 border-blue-500 overflow-hidden shrink-0 bg-slate-100 flex items-center justify-center">
+                        <img src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" alt="Pesilat" class="w-10 h-10 object-contain">
+                    </div>
+                    <div class="flex-grow">
+                        <div class="flex items-center gap-2 mb-0.5">
+                            <h4 id="juriNamaPesilat" class="font-black text-slate-800 text-[11px] leading-tight uppercase">Belum Ada Pertandingan</h4>
+                            <span id="juriPartaiInfo" class="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-black text-[8px] uppercase">Partai --</span>
+                        </div>
+                        <p id="juriInstansiPesilat" class="text-[9px] font-bold text-blue-600 uppercase">Data Belum Live</p>
+                        <p id="juriInfoPesilat" class="text-[7px] font-black text-slate-400 uppercase mt-0.5 tracking-tighter">PILIH PESERTA DI OPERATOR</p>
+                    </div>
+                    <div class="text-right">
+                        <div id="selectedJuriLabel" class="bg-blue-600 text-white px-2 py-1 rounded text-[8px] font-black uppercase">JURI --</div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 p-4 rounded-2xl text-center shadow-lg border-b-4 border-blue-600">
+                    <span class="text-blue-400 text-[9px] font-black uppercase tracking-[0.2em] block mb-1">Skor Berjalan</span>
+                    <div id="juriLiveScore" class="text-5xl font-black text-white tabular-nums tracking-tighter">9.90</div>
+                </div>
+
+                <!-- PANEL STANDAR (TUNGGAL/REGU) -->
+                <div id="panel-standar" class="flex flex-col gap-3">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm text-center">
+                            <span class="text-[9px] font-black text-slate-400 uppercase block mb-1">Jurus</span>
+                            <div id="jurusDisplay" class="text-2xl font-black text-slate-700">1</div>
+                        </div>
+                        <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm text-center">
+                            <span class="text-[9px] font-black text-slate-400 uppercase block mb-1 text-red-500">Pinalti</span>
+                            <div id="juriPenaltyDisplay" class="text-2xl font-black text-red-600">0.00</div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <button onclick="wrongMove()" class="bg-yellow-400 border-b-4 border-yellow-600 py-6 rounded-2xl font-black text-black uppercase text-sm active-press flex flex-col items-center gap-2">
+                            <i class="fas fa-times-circle text-2xl"></i>Salah Gerak (-0.01)
+                        </button>
+                        <button onclick="nextMove()" class="bg-emerald-500 border-b-4 border-emerald-700 py-6 rounded-2xl font-black text-white uppercase text-sm active-press flex flex-col items-center gap-2">
+                            <i class="fas fa-chevron-right text-2xl"></i>Gerak Selanjutnya
+                        </button>
+                    </div>
+                    <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                        <label class="text-[9px] font-black text-slate-400 uppercase block mb-2 text-center">Indikator Stamina & Ekspresi (+Poin)</label>
+                        <div class="grid grid-cols-5 gap-1" id="staminaGrid"></div>
+                    </div>
+                </div>
+
+                <!-- PANEL ARTISTIK (GANDA/SOLO KREATIF) -->
+                <div id="panel-artistik" class="hidden flex flex-col gap-3">
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                        
+                        <!-- TOMBOL NILAI DASAR -->
+                        <div class="mb-4">
+                            <button onclick="addArtScore(9.10, this)" class="art-btn art-btn-plus w-full py-4 rounded-2xl text-base font-black active-press uppercase tracking-widest mb-4">
+                                <i class="fas fa-star mr-2"></i> Nilai Dasar +9.10
+                            </button>
+                        </div>
+
+                        <!-- KATEGORI 1 -->
+                        <div class="mb-4">
+                            <span class="text-[9px] font-black text-blue-600 uppercase block mb-2 border-l-4 border-blue-600 pl-2">1. Teknik Serang Bela (+ Poin)</span>
+                            <div id="grid-kemantapan" class="grid grid-cols-6 gap-1"></div>
+                        </div>
+
+                        <!-- KATEGORI 2 -->
+                        <div class="mb-4">
+                            <span class="text-[9px] font-black text-emerald-600 uppercase block mb-2 border-l-4 border-emerald-600 pl-2">2. Kemantapan/Kekompakan (+ Poin)</span>
+                            <div id="grid-stamina-art" class="grid grid-cols-6 gap-1"></div>
+                        </div>
+
+                        <!-- KATEGORI 3 -->
+                        <div class="mb-4">
+                            <span class="text-[9px] font-black text-purple-600 uppercase block mb-2 border-l-4 border-purple-600 pl-2">3. Stamina & Ekspresi (+ Poin)</span>
+                            <div id="grid-kreasi" class="grid grid-cols-6 gap-1"></div>
+                        </div>
+                    </div>
+                    <button onclick="resetArtScore()" class="w-full bg-slate-800 text-white py-3 rounded-lg text-[10px] font-black uppercase">
+                        <i class="fas fa-undo mr-2"></i> Reset Penilaian Juri Ini
+                    </button>
+                </div>
+            </div>
+        </main>
+
+        <!-- VIEW: JADWAL -->
+        <main id="view-jadwal" class="view-content hidden flex-grow p-3 flex flex-col overflow-hidden">
+            <div class="flex gap-1 mb-3 shrink-0">
+                <button onclick="exportJadwalPDF()" class="flex-1 bg-red-600 text-white py-2 rounded text-[10px] font-black uppercase active-press"><i class="fas fa-file-pdf mr-1"></i> Export Jadwal PDF</button>
+                <button onclick="hapusSemuaPeserta()" class="flex-1 bg-slate-800 text-white py-2 rounded text-[10px] font-black uppercase active-press"><i class="fas fa-trash-alt mr-1"></i> Hapus Semua</button>
+            </div>
+            <div id="groupedTableJadwal" class="space-y-4 flex-grow overflow-y-auto"></div>
+        </main>
+
+        <!-- VIEW: REKAPITULASI JUARA -->
+        <main id="view-rekap" class="view-content hidden flex-grow p-3 flex flex-col overflow-hidden">
+            <div class="flex gap-1 mb-3 shrink-0">
+                <button onclick="exportRekapPDF()" class="flex-1 bg-red-600 text-white py-2 rounded text-[10px] font-black uppercase active-press"><i class="fas fa-file-pdf mr-1"></i> Export Rekap Juara PDF</button>
+            </div>
+            <div id="groupedTableRekap" class="space-y-4 flex-grow overflow-y-auto pt-4"></div>
+        </main>
+
+        <!-- VIEW: SCOREBOARD -->
+        <main id="view-scoreboard" class="view-content hidden flex-grow bg-slate-950 p-3 overflow-hidden flex flex-col gap-1 items-center">
+            <div class="text-center w-full mt-[-8px]">
+                <div id="sb-match-info" class="text-sm font-black text-blue-400 uppercase tracking-widest leading-none">
+                    PARTAI -- - -- -- --
+                </div>
+                <h1 id="sb-nama-pesilat" class="text-xl font-black text-white uppercase leading-tight sb-glow mt-0.5">
+                    Belum Ada Pertandingan
+                </h1>
+            </div>
+
+            <div class="w-full flex flex-col gap-1.5 max-w-2xl">
+                <div class="sb-card rounded-xl p-3 text-center border-b-4 border-blue-600 shadow-2xl relative overflow-hidden">
+                    <span class="text-[9px] font-black text-blue-300 uppercase tracking-[0.3em] block leading-none">Nilai Akhir</span>
+                    <div id="sb-final-score" class="text-[110px] font-black text-white leading-none my-[-5px] tabular-nums">0.000</div>
+                    
+                    <div class="w-full flex justify-center mt-2 mb-2">
+                        <div class="bg-emerald-900/30 px-6 py-1 rounded-lg border border-emerald-500/30">
+                            <span id="sb-timer" class="text-2xl font-black text-white font-mono tracking-tighter">00:00.00</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-1 border-t border-slate-700/50 pt-2">
+                        <div class="bg-slate-900/50 rounded-lg py-1.5 border border-slate-700/50">
+                            <span class="text-[8px] block text-slate-400 uppercase font-bold mb-0.5 leading-none">Median</span>
+                            <span id="sb-median" class="text-lg font-black text-white">0.00</span>
+                        </div>
+                        <div class="bg-slate-900/50 rounded-lg py-1.5 border border-slate-700/50">
+                            <span class="text-[8px] block text-red-400 uppercase font-bold mb-0.5 leading-none">Penalty</span>
+                            <span id="sb-penalty" class="text-lg font-black text-red-500">0.00</span>
+                        </div>
+                        <div class="bg-slate-900/50 rounded-lg py-1.5 border border-slate-700/50">
+                            <span class="text-[8px] block text-slate-400 uppercase font-bold mb-0.5 leading-none">Deviasi</span>
+                            <span id="sb-stddev" class="text-lg font-black text-white">0.000</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="sb-juri-grid" class="grid grid-cols-5 gap-1"></div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // FUNGSI LOGIN & LOGOUT
+        window.checkLogin = function() {
+            const pass = document.getElementById('login-password').value;
+            if (pass === 'djarot123') {
+                document.getElementById('login-screen').style.display = 'none';
+            } else {
+                alert('PASSWORD SALAH! Hubungi Admin.');
+            }
+        };
+
+        window.logout = function() {
+            if(confirm("Apakah Anda yakin ingin logout?")) {
+                document.getElementById('login-screen').style.display = 'flex';
+                document.getElementById('login-password').value = '';
+                document.getElementById('sidebar').classList.add('closed');
+            }
+        };
+
+        window.toggleSidebar = (e) => {
+            if(e) e.stopPropagation();
+            const sb = document.getElementById('sidebar');
+            sb.classList.toggle('closed');
+        };
+
+        window.handleWrapperClick = () => {
+            const sb = document.getElementById('sidebar');
+            if (!sb.classList.contains('closed')) {
+                sb.classList.add('closed');
+            }
+        };
+
+        window.toggleCleanView = () => {
+            document.body.classList.toggle('clean-view');
+            const isClean = document.body.classList.contains('clean-view');
+            document.getElementById('clean-text').innerText = isClean ? "Buka Header" : "Full Screen";
+            if (isClean) {
+                const sb = document.getElementById('sidebar');
+                if(!sb.classList.contains('closed')) sb.classList.add('closed');
+            }
+        };
+    </script>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, set, onValue, update, push, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        const firebaseConfig = {
+  apiKey: "AIzaSyDINLWzQAE7hgAv2iGJpCfBgyZYxWnan2E",
+  authDomain: "djarotsilatclub-52afa.firebaseapp.com",
+  databaseURL: "https://djarotsilatclub-52afa-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "djarotsilatclub-52afa",
+  storageBucket: "djarotsilatclub-52afa.firebasestorage.app",
+  messagingSenderId: "510476151753",
+  appId: "1:510476151753:web:43eaf7cf475fc4306d5618"
+};
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const matchID = "partai_66"; 
+        const dewanRef = ref(db, `scoring/${matchID}/dewan`);
+        const juriRef = ref(db, `scoring/${matchID}/juri_scores`);
+        const statusRef = ref(db, `status_juri`);
+        const pesertaRef = ref(db, `peserta_list`);
+        const activeMatchRef = ref(db, `active_match`); 
+
+        let state = {
+            currentTime: 0, manualPenalty: 0, isUD: false, isDQ: false,
+            checks: { toleransi: false, keluar: false, senjata: false, pakaian: false, menahan: false },
+            median: 9.90, stdDev: 0.00, timerRunning: false
+        };
+
+        let currentJuriID = null;
+        let juriLocalState = { baseScore: 9.90, wrongMovePenalty: 0, staminaBonus: 0, artisticScore: 0, currentJurus: 1 };
+        let juriStatus = {}; 
+        let juriScores = {}; 
+        let lastJuriScores = {}; 
+        let clockInterval = null;
+        let lastSyncTime = 0;
+        let cachedPesertaList = [];
+        let matchControl = {}; 
+        let activeMatchData = null;
+        let editingPesertaId = null;
+
+        function formatDisplayTime(seconds) {
+            if (seconds < 0) seconds = 0;
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            const centi = Math.floor((seconds % 1) * 100);
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${centi.toString().padStart(2, '0')}`;
+        }
+
+        window.updateNameInputs = () => {
+            const kat = document.getElementById('input_kategori').value;
+            const container = document.getElementById('nama_fields_container');
+            let count = 1;
+            if (kat === 'Ganda') count = 2;
+            if (kat === 'Regu') count = 3;
+            container.innerHTML = '';
+            if (count === 2) container.className = "col-span-2 grid grid-cols-2 gap-2";
+            else if (count === 3) container.className = "col-span-2 grid grid-cols-3 gap-2";
+            else container.className = "col-span-2 grid grid-cols-1 gap-2";
+            for(let i=1; i<=count; i++) {
+                container.innerHTML += `<div>
+                    <label class="text-[9px] font-bold text-slate-400 uppercase">Nama Pesilat ${count > 1 ? i : ''}</label>
+                    <input type="text" class="input-nama w-full bg-slate-50 border border-slate-200 p-2 rounded font-bold text-[11px]">
+                </div>`;
+            }
+        };
+
+        window.switchView = (view) => {
+            document.querySelectorAll('.view-content').forEach(v => v.classList.add('hidden'));
+            document.querySelectorAll('.menu-box').forEach(m => m.classList.remove('active'));
+            const target = document.getElementById(`view-${view}`);
+            if (target) target.classList.remove('hidden');
+            const nav = document.getElementById(`nav-${view}`);
+            if (nav) nav.classList.add('active');
+
+            if(view === 'juri') {
+                document.getElementById('nav-laptop').classList.add('hidden');
+            } else {
+                document.getElementById('nav-laptop').classList.remove('hidden');
+            }
+
+            const header = document.getElementById('topHeader');
+            const identity = document.getElementById('identityBar');
+            
+            if(view === 'dewan' || view === 'operator' || view === 'jadwal') {
+                header.classList.remove('hidden');
+                identity.classList.remove('hidden');
+            } else {
+                header.classList.add('hidden');
+                identity.classList.add('hidden');
+            }
+            document.getElementById('roleBadge').innerText = view.toUpperCase();
+            if(window.innerWidth < 1024) document.getElementById('sidebar').classList.add('closed');
+        };
+
+        window.toggleLaptopMode = () => {
+            document.body.classList.toggle('laptop-mode');
+            const btn = document.getElementById('nav-laptop');
+            btn.classList.toggle('active');
+        };
+
+        window.switchSekretarisSub = (sub) => {
+            document.getElementById('sekretaris-input-page').classList.add('hidden');
+            document.getElementById('sekretaris-data-page').classList.add('hidden');
+            document.getElementById('sub-sek-input').classList.remove('active');
+            document.getElementById('sub-sek-data').classList.remove('active');
+            if(sub === 'input') {
+                document.getElementById('sekretaris-input-page').classList.remove('hidden');
+                document.getElementById('sub-sek-input').classList.add('active');
+            } else {
+                document.getElementById('sekretaris-data-page').classList.remove('hidden');
+                document.getElementById('sub-sek-data').classList.add('active');
+            }
+        };
+
+        window.selectJuri = (id) => {
+            if(juriStatus[`juri_${id}`] === true) {
+                alert(`Juri ${id} sudah aktif!`);
+                return;
+            }
+            currentJuriID = id;
+            if(activeMatchData?.kategori === 'Ganda' || activeMatchData?.kategori === 'Solo Kreatif') {
+                juriLocalState = { baseScore: 0, wrongMovePenalty: 0, staminaBonus: 0, artisticScore: 0, currentJurus: 1 };
+            } else {
+                juriLocalState = { baseScore: 9.90, wrongMovePenalty: 0, staminaBonus: 0, artisticScore: 0, currentJurus: 1 };
+            }
+            document.getElementById('juriSelectionScreen').classList.add('hidden');
+            document.getElementById('juriScoringScreen').classList.remove('hidden');
+            document.getElementById('selectedJuriLabel').innerText = `JURI ${id}`;
+            update(ref(db, `status_juri`), { [`juri_${id}`]: true });
+            updateJuriPanelLayout();
+            syncJuriToFirebase();
+            updateJuriUI();
+        };
+
+        function updateJuriPanelLayout() {
+            const isArtistic = (activeMatchData?.kategori === 'Ganda' || activeMatchData?.kategori === 'Solo Kreatif');
+            document.getElementById('panel-standar').classList.toggle('hidden', isArtistic);
+            document.getElementById('panel-artistik').classList.toggle('hidden', !isArtistic);
+            if (isArtistic) initArtisticButtons();
+        }
+
+        function initArtisticButtons() {
+            const kemantapanGrid = document.getElementById('grid-kemantapan');
+            const staminaGridArt = document.getElementById('grid-stamina-art');
+            const kreasiGrid = document.getElementById('grid-kreasi');
+            const generate = (container) => {
+                container.innerHTML = '';
+                for (let i = 1; i <= 30; i++) {
+                    const val = i / 100;
+                    const btn = document.createElement('button');
+                    btn.className = 'art-btn-item active-press';
+                    btn.innerText = `+${val.toFixed(2)}`;
+                    btn.onclick = () => addArtScore(val, btn);
+                    container.appendChild(btn);
+                }
+            };
+            if (kemantapanGrid) generate(kemantapanGrid);
+            if (staminaGridArt) generate(staminaGridArt);
+            if (kreasiGrid) generate(kreasiGrid);
+        }
+
+        window.backToJuriSelect = () => {
+            if(currentJuriID) update(ref(db, `status_juri`), { [`juri_${currentJuriID}`]: false });
+            currentJuriID = null;
+            document.getElementById('juriSelectionScreen').classList.remove('hidden');
+            document.getElementById('juriScoringScreen').classList.add('hidden');
+        };
+
+        window.setControlStatus = (pesertaId, status, partaiNum) => {
+            // Perbaikan: Hanya mengizinkan 1 status aktif per kolom/peserta
+            const updates = {
+                [`match_control/${pesertaId}/persiapan`]: status === 'persiapan',
+                [`match_control/${pesertaId}/live`]: status === 'live',
+                [`match_control/${pesertaId}/selesai`]: status === 'selesai'
+            };
+            update(ref(db), updates);
+            if(status === 'live') {
+                const peserta = cachedPesertaList.find(p => p.id === pesertaId);
+                if(peserta) {
+                    const livePeserta = { ...peserta, partai: partaiNum };
+                    set(activeMatchRef, livePeserta); 
+                }
+            }
+        };
+
+        window.tambahPeserta = () => {
+            const kontingen = document.getElementById('input_kontingen').value;
+            const jk = document.getElementById('input_jk').value;
+            const usia = document.getElementById('input_usia').value;
+            const kategori = document.getElementById('input_kategori').value;
+            const nameInputs = document.querySelectorAll('.input-nama');
+            const namesArray = Array.from(nameInputs).map(i => i.value).filter(v => v.trim() !== "");
+            const namaFormatted = namesArray.join(', ');
+            if(namesArray.length === 0 || !kontingen) return alert("Lengkapi data!");
+            const pData = { nama: namaFormatted, kontingen, jk, usia, kategori };
+            if(editingPesertaId) {
+                update(ref(db, `peserta_list/${editingPesertaId}`), pData).then(() => {
+                    alert("Data Peserta Berhasil Diperbarui!");
+                    cancelEdit();
+                    switchSekretarisSub('data');
+                });
+            } else {
+                push(pesertaRef, pData).then(() => {
+                    alert("Peserta Berhasil Disimpan!");
+                    resetFormSekretaris();
+                    switchSekretarisSub('data');
+                });
+            }
+        };
+
+        function resetFormSekretaris() {
+            document.getElementById('input_kontingen').value = "";
+            document.getElementById('input_kategori').selectedIndex = 0;
+            updateNameInputs();
+            const nameInputs = document.querySelectorAll('.input-nama');
+            nameInputs.forEach(i => i.value = "");
+        }
+
+        window.editPeserta = (id) => {
+            const p = cachedPesertaList.find(item => item.id === id);
+            if(!p) return;
+            editingPesertaId = id;
+            switchSekretarisSub('input');
+            document.getElementById('formTitleSek').innerText = "Edit Data Peserta";
+            document.getElementById('input_kontingen').value = p.kontingen;
+            document.getElementById('input_kategori').value = p.kategori;
+            document.getElementById('input_jk').value = p.jk;
+            document.getElementById('input_usia').value = p.usia;
+            updateNameInputs();
+            const nameInputs = document.querySelectorAll('.input-nama');
+            const names = p.nama.split(', ');
+            names.forEach((n, idx) => { if(nameInputs[idx]) nameInputs[idx].value = n; });
+            document.getElementById('btn_simpan_peserta').innerText = "Perbarui Peserta";
+            document.getElementById('btn_cancel_edit').classList.remove('hidden');
+        };
+
+        window.cancelEdit = () => {
+            editingPesertaId = null;
+            document.getElementById('formTitleSek').innerText = "Input Data Peserta Baru";
+            document.getElementById('btn_simpan_peserta').innerText = "Simpan Peserta";
+            document.getElementById('btn_cancel_edit').classList.add('hidden');
+            resetFormSekretaris();
+        };
+
+        window.hapusPeserta = (id) => {
+            if(confirm("Hapus peserta ini?")) {
+                remove(ref(db, `peserta_list/${id}`));
+                remove(ref(db, `match_control/${id}`));
+            }
+        };
+
+        window.hapusSemuaPeserta = () => {
+            if(confirm("Hapus SELURUH data peserta?")) {
+                remove(pesertaRef);
+                remove(ref(db, `match_control`));
+                remove(activeMatchRef);
+            }
+        };
+
+        onValue(activeMatchRef, (snapshot) => {
+            activeMatchData = snapshot.val();
+            const p = activeMatchData;
+            if(p) {
+                document.getElementById('namaPesilat').innerText = p.nama;
+                document.getElementById('kategoriPesilat').innerText = `${p.kontingen} - ${p.kategori} ${p.usia} ${p.jk}`;
+                document.getElementById('juriNamaPesilat').innerText = p.nama;
+                document.getElementById('juriPartaiInfo').innerText = `PARTAI ${p.partai || '--'}`;
+                document.getElementById('juriInstansiPesilat').innerText = p.kontingen;
+                document.getElementById('juriInfoPesilat').innerText = `${p.kategori} ${p.usia} ${p.jk}`;
+                document.getElementById('sb-nama-pesilat').innerText = `${p.nama} - ${p.kontingen}`;
+                document.getElementById('sb-match-info').innerText = `PARTAI ${p.partai || '--'} - ${p.kategori} ${p.jk} ${p.usia}`;
+                document.getElementById('matchInfo').innerText = `PARTAI ${p.partai || '--'}`;
+                if(currentJuriID) updateJuriPanelLayout();
+            } else {
+                document.getElementById('namaPesilat').innerText = "Belum Ada Pertandingan";
+                document.getElementById('kategoriPesilat').innerText = "Pilih di Operator";
+                document.getElementById('juriNamaPesilat').innerText = "Belum Ada Pertandingan";
+                document.getElementById('juriPartaiInfo').innerText = "Partai --";
+                document.getElementById('sb-nama-pesilat').innerText = "Belum Ada Pertandingan";
+                document.getElementById('sb-match-info').innerText = "PARTAI -- - -- -- --";
+            }
+            updateUI();
+        });
+
+        onValue(ref(db, `match_control`), (snapshot) => {
+            matchControl = snapshot.val() || {};
+            renderOperatorTables(); renderJadwalTables(); renderRekapTables();
+        });
+
+        onValue(pesertaRef, (snapshot) => {
+            const list = snapshot.val(); 
+            cachedPesertaList = [];
+            if(list) { Object.keys(list).forEach(key => { cachedPesertaList.push({ id: key, ...list[key] }); }); }
+            renderSekretarisTables(); renderOperatorTables(); renderJadwalTables(); renderRekapTables();
+            updateUI();
+        });
+
+        function renderSekretarisTables() { const container = document.getElementById('groupedTableSekretaris'); if(container) { container.innerHTML = ''; groupAndRender(container, 'sekretaris'); } }
+        function renderOperatorTables() { const container = document.getElementById('groupedTableOperator'); if(container) { container.innerHTML = ''; groupAndRender(container, 'operator'); } }
+        function renderJadwalTables() { const container = document.getElementById('groupedTableJadwal'); if(container) { container.innerHTML = ''; groupAndRender(container, 'jadwal'); } }
+        function renderRekapTables() { const container = document.getElementById('groupedTableRekap'); if(container) { container.innerHTML = ''; groupAndRender(container, 'rekap'); } }
+
+        function groupAndRender(container, type) {
+            const categories = ["Tunggal", "Solo Kreatif", "Ganda", "Regu"];
+            const ages = ["Usia Dini 1", "Usia Dini 2", "Pra Remaja", "Remaja", "Dewasa"];
+            const genders = ["Putra", "Putri"];
+            categories.forEach(kat => { ages.forEach(usia => { genders.forEach(jk => {
+                let filtered = cachedPesertaList.filter(p => p.kategori === kat && p.usia === usia && p.jk === jk);
+                if(filtered.length > 0) { renderTableGroup(kat, usia, jk, filtered, container, type); }
+            }); }); });
+        }
+
+        function renderTableGroup(kat, usia, jk, items, container, type) {
+            let tableHeader = '';
+            if(type === 'sekretaris') tableHeader = `<tr class="header-sekretaris text-white border-b border-black"><th class="p-2 border-r border-black w-8 text-center">No</th><th class="p-2 border-r border-black w-10 text-center">Partai</th><th class="p-2 border-r border-black">Nama / Kontingen</th><th class="p-2 border-r border-black">Kategori</th><th class="p-2 text-center w-24">Aksi</th></tr>`;
+            else if(type === 'operator') tableHeader = `<tr class="bg-slate-800 text-white border-b border-black"><th class="p-2 border-r border-black w-8 text-center">No</th><th class="p-2 border-r border-black w-12 text-center">Partai</th><th class="p-2 border-r border-black">Nama Pesilat / Kontingen</th><th class="p-2 border-r border-black">Info</th><th class="p-2 text-center w-32">Kontrol</th></tr>`;
+            else if(type === 'jadwal') tableHeader = `<tr class="bg-blue-800 text-white border-b border-black"><th class="p-2 border-r border-black w-8 text-center">No</th><th class="p-2 border-r border-black w-12 text-center">Partai</th><th class="p-2 border-r border-black">Nama Pesilat / Kontingen</th><th class="p-2 border-r border-black">Kategori</th><th class="p-2 border-r border-black text-center">Waktu</th><th class="p-2 text-center">Nilai</th></tr>`;
+            else if(type === 'rekap') tableHeader = `<tr class="bg-blue-800 text-white border-b border-black"><th class="p-2 border-r border-black w-8 text-center">No</th><th class="p-2 border-r border-black w-12 text-center">Partai</th><th class="p-2 border-r border-black">Nama Pesilat / Kontingen</th><th class="p-2 border-r border-black">Kategori</th><th class="p-2 border-r border-black text-center">Waktu</th><th class="p-2 border-r border-black text-center">Nilai</th><th class="p-2 text-center">Peringkat</th></tr>`;
+            let sortedItems = [...items];
+            let rankable = [];
+            if (type === 'rekap') {
+                sortedItems.forEach(p => {
+                    let fs = matchControl[p.id]?.finalScore || "0.000";
+                    if(activeMatchData && p.id === activeMatchData.id) { fs = (state.median - state.manualPenalty).toFixed(3); if(state.isDQ) fs = "DISK"; else if(state.isUD) fs = "UD"; }
+                    p._currentFinalScore = fs;
+                });
+                rankable = sortedItems.filter(p => p._currentFinalScore !== "DISK" && p._currentFinalScore !== "UD" && p._currentFinalScore !== "0.000").sort((a, b) => parseFloat(b._currentFinalScore) - parseFloat(a._currentFinalScore));
+                sortedItems = [...rankable, ...sortedItems.filter(p => p._currentFinalScore === "DISK" || p._currentFinalScore === "UD" || p._currentFinalScore === "0.000")];
+            }
+            let tableHtml = `<div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-4"><div class="table-group-header"><span><i class="fas fa-layer-group mr-1"></i> ${kat} ${usia} ${jk}</span></div><table class="w-full text-left border-collapse border-black-sep"><thead>${tableHeader}</thead><tbody class="text-[9px]">`;
+            sortedItems.forEach((p, index) => {
+                const ctrl = matchControl[p.id] || {};
+                const matchNumber = index + 1; 
+                let actionHtml = '';
+                if(type === 'sekretaris') actionHtml = `<div class="flex justify-center gap-1"><button onclick="editPeserta('${p.id}')" class="bg-blue-100 text-blue-600 w-6 h-6 rounded flex items-center justify-center active-press"><i class="fas fa-pen text-[7px]"></i></button><button onclick="hapusPeserta('${p.id}')" class="bg-red-100 text-red-600 w-6 h-6 rounded flex items-center justify-center active-press"><i class="fas fa-trash text-[7px]"></i></button></div>`;
+                else if(type === 'operator') actionHtml = `
+                    <div class="grid grid-cols-3 gap-1 px-1">
+                        <button onclick="setControlStatus('${p.id}', 'persiapan', ${matchNumber})" class="btn-op-persiapan py-1 border border-slate-200 rounded text-[7px] font-black active-press uppercase ${ctrl.persiapan ? 'active' : ''}">Ready</button>
+                        <button onclick="setControlStatus('${p.id}', 'live', ${matchNumber})" class="btn-op-live py-1 border border-slate-200 rounded text-[7px] font-black active-press uppercase ${ctrl.live ? 'active' : ''}">Live</button>
+                        <button onclick="setControlStatus('${p.id}', 'selesai', ${matchNumber})" class="btn-op-selesai py-1 border border-slate-200 rounded text-[7px] font-black active-press uppercase ${ctrl.selesai ? 'active' : ''}">Finish</button>
+                    </div>`;
+                
+                let displayTime = ctrl.finalTime || "00:00.00";
+                let displayScore = ctrl.finalScore || "0.000";
+                
+                if(activeMatchData && activeMatchData.id === p.id) {
+                    displayTime = formatDisplayTime(state.currentTime);
+                    displayScore = (state.median - state.manualPenalty).toFixed(3);
+                    if(state.isDQ) displayScore = "DISK"; else if(state.isUD) displayScore = "UD";
+                }
+
+                if(type === 'sekretaris') tableHtml += `<tr class="border-b border-black last:border-0 hover:bg-slate-50"><td class="p-2 border-r border-black font-black text-slate-400 text-center">${index + 1}</td><td class="p-2 border-r border-black font-black text-center text-green-700 bg-green-50">${matchNumber}</td><td class="p-2 border-r border-black"><div class="font-bold text-slate-800 uppercase leading-none">${p.nama}</div><div class="text-[7px] text-slate-500 font-bold uppercase mt-1">${p.kontingen}</div></td><td class="p-2 border-r border-black text-[7.5px] font-bold uppercase">${p.kategori} ${p.usia} ${p.jk}</td><td class="p-1 text-center">${actionHtml}</td></tr>`;
+                else if(type === 'rekap') {
+                    let rankLabel = "-", bgClass = "";
+                    let rankPos = rankable.findIndex(r => r.id === p.id);
+                    if (rankPos !== -1) { rankLabel = `Juara ${rankPos + 1}`; if (rankPos < 3) bgClass = 'bg-yellow-400 text-black px-2 py-0.5 rounded font-black'; }
+                    else if (p._currentFinalScore === "DISK") { rankLabel = "DISK"; bgClass = "text-red-600 font-bold"; }
+                    tableHtml += `<tr class="border-b border-black last:border-0 hover:bg-slate-50 ${p.id === activeMatchData?.id ? 'bg-yellow-50' : ''}"><td class="p-2 border-r border-black font-black text-slate-400 text-center">${index + 1}</td><td class="p-2 border-r border-black font-black text-center text-blue-600">${matchNumber}</td><td class="p-2 border-r border-black"><div>${p.nama}</div><div class="text-[7px] font-bold">${p.kontingen}</div></td><td class="p-2 border-r border-black">${p.kategori}</td><td class="p-2 border-r border-black text-center">${displayTime}</td><td class="p-2 border-r border-black text-center font-bold">${displayScore}</td><td class="p-2 text-center"><span class="${bgClass}">${rankLabel}</span></td></tr>`;
+                } else if(type === 'jadwal') {
+                    tableHtml += `<tr class="border-b border-black last:border-0 hover:bg-slate-50 ${p.id === activeMatchData?.id ? 'bg-yellow-50' : ''}"><td class="p-2 border-r border-black font-black text-slate-400 text-center">${index + 1}</td><td class="p-2 border-r border-black font-black text-center text-blue-600">${matchNumber}</td><td class="p-2 border-r border-black"><div>${p.nama}</div><div class="text-[7px] font-bold">${p.kontingen}</div></td><td class="p-2 border-r border-black text-center">${p.kategori}</td><td class="p-2 border-r border-black text-center font-mono font-bold">${displayTime}</td><td class="p-2 text-center font-black text-blue-700">${displayScore}</td></tr>`;
+                } else if(type === 'operator') {
+                    tableHtml += `<tr class="border-b border-black last:border-0 hover:bg-slate-50"><td class="p-2 border-r border-black font-black text-slate-400 text-center">${index + 1}</td><td class="p-2 border-r border-black font-black text-center text-blue-600">${matchNumber}</td><td class="p-2 border-r border-black"><div>${p.nama}</div><div class="text-[7px] font-bold">${p.kontingen}</div></td><td class="p-2 border-r border-black text-center font-black uppercase text-blue-600">${p.kategori} ${p.jk} ${p.usia}</td><td class="p-1 text-center">${actionHtml}</td></tr>`;
+                } else tableHtml += `<tr class="border-b border-black last:border-0 hover:bg-slate-50"><td class="p-2 border-r border-black font-black text-slate-400 text-center">${index + 1}</td><td class="p-2 border-r border-black font-black text-center text-blue-600">${matchNumber}</td><td class="p-2 border-r border-black"><div>${p.nama}</div><div class="text-[7px] font-bold">${p.kontingen}</div></td><td class="p-2 border-r border-black text-center">${p.usia}</td><td class="p-1 text-center">${actionHtml || displayScore}</td></tr>`;
+            });
+            tableHtml += `</tbody></table></div>`;
+            container.innerHTML += tableHtml;
+        }
+
+        window.finishMatch = () => {
+            if(!activeMatchData) return alert("Pilih peserta!");
+            if(!confirm("Kirim skor akhir?")) return;
+            pauseTimer();
+            let finalScoreToSave = (state.median - state.manualPenalty).toFixed(3);
+            if(state.isDQ) finalScoreToSave = "DISK"; else if(state.isUD) finalScoreToSave = "UD";
+            const updates = { [`match_control/${activeMatchData.id}/finalScore`]: finalScoreToSave, [`match_control/${activeMatchData.id}/finalTime`]: formatDisplayTime(state.currentTime), [`match_control/${activeMatchData.id}/live`]: false, [`match_control/${activeMatchData.id}/selesai`]: true };
+            update(ref(db), updates).then(() => alert(`Nilai ${finalScoreToSave} disimpan!`));
+        };
+
+        window.autoNextMatch = () => {
+            if(!confirm("Partai selanjutnya?")) return;
+            if (activeMatchData) {
+                let finalScoreToSave = (state.median - state.manualPenalty).toFixed(3);
+                if(state.isDQ) finalScoreToSave = "DISK"; else if(state.isUD) finalScoreToSave = "UD";
+                const lastMatchUpdates = {
+                    [`match_control/${activeMatchData.id}/finalScore`]: finalScoreToSave,
+                    [`match_control/${activeMatchData.id}/finalTime`]: formatDisplayTime(state.currentTime),
+                    [`match_control/${activeMatchData.id}/live`]: false,
+                    [`match_control/${activeMatchData.id}/selesai`]: true
+                };
+                update(ref(db), lastMatchUpdates);
+            }
+            let nextPeserta = null, nextIndex = 0;
+            if(activeMatchData) { const idx = cachedPesertaList.findIndex(p => p.id === activeMatchData.id); if(idx !== -1 && idx < cachedPesertaList.length - 1) { nextPeserta = cachedPesertaList[idx + 1]; nextIndex = idx + 1; } }
+            else if (cachedPesertaList.length > 0) nextPeserta = cachedPesertaList[0];
+            state = { currentTime: 0, manualPenalty: 0, isUD: false, isDQ: false, checks: { toleransi: false, keluar: false, senjata: false, pakaian: false, menahan: false }, median: 9.90, stdDev: 0.00, timerRunning: false };
+            saveToFirebase(); set(juriRef, {});
+            const resetJuri = {}; for(let i=1; i<=10; i++) resetJuri[`juri_${i}`] = false; set(statusRef, resetJuri); 
+            if(nextPeserta) {
+                const up = { [`match_control/${nextPeserta.id}/live`]: true }; update(ref(db), up);
+                set(activeMatchRef, { ...nextPeserta, partai: nextIndex + 1 });
+            } else set(activeMatchRef, null);
+        };
+
+        window.resetFullMatch = () => { if(confirm("RESET SEKARANG?")) { pauseTimer(); state.currentTime = 0; state.manualPenalty = 0; saveToFirebase(); set(juriRef, {}); } };
+
+        window.wrongMove = () => { juriLocalState.wrongMovePenalty += 0.01; updateJuriUI(); syncJuriToFirebase(); };
+        window.nextMove = () => { juriLocalState.currentJurus++; updateJuriUI(); };
+        window.setStamina = (val, btn) => {
+            if(btn.classList.contains('stamina-active')) { juriLocalState.staminaBonus = 0; btn.classList.remove('stamina-active'); }
+            else { juriLocalState.staminaBonus = val; document.querySelectorAll('.stamina-btn').forEach(b => b.classList.remove('stamina-active')); btn.classList.add('stamina-active'); }
+            updateJuriUI(); syncJuriToFirebase();
+        };
+
+        window.addArtScore = (val, btn) => {
+            juriLocalState.artisticScore += val;
+            if(btn) { btn.classList.add('glow-active'); setTimeout(() => btn.classList.remove('glow-active'), 300); }
+            updateJuriUI();
+            syncJuriToFirebase();
+        };
+
+        window.resetArtScore = () => { if(confirm("Hapus poin juri ini?")) { juriLocalState.artisticScore = 0; updateJuriUI(); syncJuriToFirebase(); } };
+
+        function syncJuriToFirebase() {
+            if(!currentJuriID) return;
+            let final = (activeMatchData?.kategori === 'Ganda' || activeMatchData?.kategori === 'Solo Kreatif') ? juriLocalState.artisticScore : (juriLocalState.baseScore - juriLocalState.wrongMovePenalty + juriLocalState.staminaBonus);
+            update(juriRef, { [`juri_${currentJuriID}`]: parseFloat(final.toFixed(2)) });
+        }
+
+        function updateJuriUI() {
+            let isArt = (activeMatchData?.kategori === 'Ganda' || activeMatchData?.kategori === 'Solo Kreatif');
+            let score = isArt ? juriLocalState.artisticScore : (juriLocalState.baseScore - juriLocalState.wrongMovePenalty + juriLocalState.staminaBonus);
+            if(!isArt) {
+                if(document.getElementById('juriPenaltyDisplay')) document.getElementById('juriPenaltyDisplay').innerText = juriLocalState.wrongMovePenalty.toFixed(2);
+                if(document.getElementById('jurusDisplay')) document.getElementById('jurusDisplay').innerText = juriLocalState.currentJurus;
+            }
+            if(document.getElementById('juriLiveScore')) document.getElementById('juriLiveScore').innerText = score.toFixed(2);
+        }
+
+        onValue(dewanRef, (snapshot) => { const data = snapshot.val(); if(data) { state = {...state, ...data}; updateUI(); } });
+        onValue(statusRef, (snapshot) => { juriStatus = snapshot.val() || {}; renderJuriSelectButtons(); renderJuriGrid(juriScores); renderScoreboardJuri(juriScores); if(currentJuriID && juriStatus[`juri_${currentJuriID}`] === false) backToJuriSelect(); });
+        onValue(juriRef, (snapshot) => {
+            const newScores = snapshot.val() || {};
+            let changedKey = null; Object.keys(newScores).forEach(key => { if (lastJuriScores[key] !== undefined && lastJuriScores[key] !== newScores[key]) changedKey = key; });
+            juriScores = newScores; lastJuriScores = {...newScores};
+            const vals = Object.values(juriScores);
+            if(vals.length > 0) { vals.sort((a,b) => a-b); state.median = vals.length % 2 === 0 ? (vals[vals.length/2 - 1] + vals[vals.length/2]) / 2 : vals[Math.floor(vals.length/2)]; }
+            else state.median = (activeMatchData?.kategori === 'Ganda' || activeMatchData?.kategori === 'Solo Kreatif') ? 0 : 9.90;
+            state.stdDev = calculateStdDev(juriScores); renderJuriGrid(juriScores, changedKey); renderScoreboardJuri(juriScores, changedKey); updateUI();
+        });
+
+        const calculateStdDev = (s) => { const a = Object.values(s); if(a.length === 0) return 0; const m = a.reduce((x,y)=>x+y)/a.length; return Math.sqrt(a.map(x=>Math.pow(x-m,2)).reduce((x,y)=>x+y)/a.length); };
+        window.saveToFirebase = () => update(dewanRef, state);
+        window.addManualPenalty = (v) => { state.manualPenalty += v; saveToFirebase(); };
+        window.addUDPenalty = () => { state.isUD = !state.isUD; saveToFirebase(); };
+        window.toggleDQ = () => { state.isDQ = !state.isDQ; saveToFirebase(); };
+        window.startTimer = () => { if(state.timerRunning) return; state.timerRunning = true; saveToFirebase(); let last = Date.now(); clockInterval = setInterval(() => { const now = Date.now(); state.currentTime += (now-last)/1000; last = now; updateUI(); if (now-lastSyncTime > 500) { saveToFirebase(); lastSyncTime = now; } }, 10); };
+        window.pauseTimer = () => { state.timerRunning = false; clearInterval(clockInterval); saveToFirebase(); };
+        window.resetTimer = () => { pauseTimer(); state.currentTime = 0; saveToFirebase(); };
+
+        function updateUI() {
+            let finalScore = state.median - state.manualPenalty;
+            let display = finalScore.toFixed(3); if(state.isDQ) display = "DISK"; else if(state.isUD) display = "UD";
+            if(document.getElementById('finalScore')) document.getElementById('finalScore').innerText = display;
+            if(document.getElementById('medianValue')) document.getElementById('medianValue').innerText = state.median.toFixed(2);
+            if(document.getElementById('stdDevValue')) document.getElementById('stdDevValue').innerText = state.stdDev.toFixed(3);
+            if(document.getElementById('penaltyDewanDisplay')) document.getElementById('penaltyDewanDisplay').innerText = state.manualPenalty.toFixed(2);
+            if(document.getElementById('totalPenaltyDisplay')) document.getElementById('totalPenaltyDisplay').innerText = state.manualPenalty.toFixed(2);
+            if(document.getElementById('sb-final-score')) document.getElementById('sb-final-score').innerText = display;
+            if(document.getElementById('sb-median')) document.getElementById('sb-median').innerText = state.median.toFixed(2);
+            if(document.getElementById('sb-stddev')) document.getElementById('sb-stddev').innerText = state.stdDev.toFixed(3);
+            if(document.getElementById('sb-penalty')) document.getElementById('sb-penalty').innerText = state.manualPenalty.toFixed(2);
+            const timeStr = formatDisplayTime(state.currentTime);
+            if (document.getElementById('finalTimeDisplay')) document.getElementById('finalTimeDisplay').innerText = timeStr;
+            if (document.getElementById('sb-timer')) document.getElementById('sb-timer').innerText = timeStr;
+            if (document.getElementById('juriMatchTimer')) document.getElementById('juriMatchTimer').innerText = timeStr;
+            const currentActiveView = document.querySelector('.menu-box.active')?.id;
+            if (currentActiveView === 'nav-jadwal') renderJadwalTables();
+            if (currentActiveView === 'nav-rekap') renderRekapTables();
+        }
+
+        function renderJuriSelectButtons() {
+            const container = document.getElementById('juriButtonsGrid'); if(!container) return; container.innerHTML = '';
+            for(let i=1; i<=10; i++) {
+                const isActive = juriStatus[`juri_${i}`] === true;
+                container.innerHTML += `<button onclick="selectJuri(${i})" class="${isActive ? 'bg-emerald-500 text-white' : 'bg-blue-50 text-blue-700'} border-2 font-black py-4 rounded-xl active-press">${i}</button>`;
+            }
+        }
+
+        function renderJuriGrid(scores, highlight) {
+            const container = document.getElementById('juriContainer'); if(!container) return; container.innerHTML = '';
+            const base = (activeMatchData?.kategori === 'Ganda' || activeMatchData?.kategori === 'Solo Kreatif') ? 0 : 9.90;
+            for(let i=1; i<=10; i++) {
+                let k = `juri_${i}`, s = scores[k] || base, on = juriStatus[k] === true, flash = (highlight === k) ? 'animate-flash' : '';
+                container.innerHTML += `<div class="bg-slate-50 border border-slate-200 p-1 rounded text-center ${flash}"><div class="flex items-center justify-center"><span class="status-dot ${on ? 'online' : 'offline'}"></span><span class="text-[7px] font-bold">J${i}</span></div><span class="text-[10px] font-black">${s.toFixed(2)}</span></div>`;
+            }
+        }
+
+        function renderScoreboardJuri(scores, highlight) {
+            const container = document.getElementById('sb-juri-grid'); if(!container) return; container.innerHTML = '';
+            const base = (activeMatchData?.kategori === 'Ganda' || activeMatchData?.kategori === 'Solo Kreatif') ? 0 : 9.90;
+            for(let i=1; i<=10; i++) {
+                const k = `juri_${i}`, s = scores[k] || base, on = juriStatus[k] === true, flash = (highlight === k) ? 'animate-flash' : '';
+                container.innerHTML += `<div class="bg-slate-900 border border-slate-800 p-1.5 rounded-xl text-center ${flash}"><span class="text-[7px] text-slate-500 font-black block">Juri ${i}</span><span class="text-base font-black ${on ? 'text-blue-400' : 'text-slate-700'}">${s.toFixed(2)}</span></div>`;
+            }
+        }
+
+        const initStaminaGrid = () => {
+            const grid = document.getElementById('staminaGrid'); if(!grid) return; grid.innerHTML = '';
+            for(let i=1; i<=10; i++) { 
+                let v = i/100, btn = document.createElement('button');
+                btn.className = 'stamina-btn p-2 rounded text-[9px] font-bold active-press'; btn.innerText = v.toFixed(2);
+                btn.onclick = () => setStamina(v, btn); grid.appendChild(btn);
+            }
+        };
+
+        renderJuriSelectButtons(); initStaminaGrid(); updateUI();
+    </script>
+</body>
+</html>
